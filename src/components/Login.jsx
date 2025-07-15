@@ -4,17 +4,23 @@ import { checkValidData } from "../utils/validation";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  updateProfile,
 } from "firebase/auth";
 
 import { auth } from "../utils/firebase"; // adjust path
+import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { addUser } from "../utils/store/slices/userSlice";
 
 const Login = () => {
   const [isSignInForm, setSignInForm] = useState(true);
+  const navigate = useNavigate();
   const [errors, setErrors] = useState({});
   const email = useRef(null);
   const password = useRef(null);
   const userName = useRef(null);
   const reTypePass = useRef(null);
+  const dispatch = useDispatch();
   const toggleSignInForm = () => {
     setErrors({});
     setSignInForm((prev) => !prev);
@@ -41,9 +47,7 @@ const Login = () => {
       )
         .then((userCredential) => {
           // Signed in
-          const user = userCredential.user;
-          console.log(user);
-          // ...
+          navigate("/browse");
         })
         .catch((error) => {
           setErrors({
@@ -59,9 +63,21 @@ const Login = () => {
         .then((userCredential) => {
           // Signed up
           const user = userCredential.user;
-          console.log(user);
-
-          // ...
+          updateProfile(user, {
+            displayName: userName.current.value,
+          })
+            .then(() => {
+              const { uid, email, displayName } = auth.currentUser;
+              dispatch(addUser({ uid, email, displayName }));
+              // Profile updated!
+              navigate("/browse");
+            })
+            .catch((error) => {
+              // An error occurred
+              setErrors({
+                ApiError: error.message,
+              });
+            });
         })
         .catch((error) => {
           setErrors({
