@@ -1,18 +1,36 @@
 import userIcon from "../assets/netflix-user.png";
 import { IoMdArrowDropdown } from "react-icons/io";
 import { TiArrowSortedUp } from "react-icons/ti";
-import { signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "../utils/firebase";
 import { Outlet, useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { useEffect } from "react";
+import { addUser, removeUser } from "../utils/store/slices/userSlice";
 const Header = () => {
   const navigate = useNavigate();
   const user = useSelector((store) => store.user);
+
+  const dispatch = useDispatch();
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const { uid, email, displayName } = user;
+        dispatch(addUser({ uid, email, displayName }));
+        navigate("/browse");
+      } else {
+        dispatch(removeUser());
+        navigate("/");
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const handleSignOut = () => {
     signOut(auth)
       .then(() => {
         alert("Sign Out successfully");
-        navigate("/");
       })
       .catch((error) => {
         // An error happened.
@@ -22,7 +40,7 @@ const Header = () => {
   return (
     <>
       {" "}
-      <div className="absolute w-full flex justify-between items-center px-4 py-2 bg-gradient-to-b from-black z-10">
+      <div className="absolute w-full flex justify-between items-center px-4 py-2 bg-gradient-to-b from-black z-50">
         {/* Netflix Logo */}
         <img
           className="w-32 md:w-44"

@@ -1,9 +1,13 @@
-import React from 'react'
+import { useMovies } from "../utils/hooks/useMovies";
+import MainContainer from "./MainContainer";
 
 const Browse = () => {
+  useMovies();
   return (
-    <div>Browse</div>
-  )
-}
+    <div className="text-black">
+      <MainContainer />
+    </div>
+  );
+};
 
-export default Browse
+export default Browse;
