@@ -8,13 +8,11 @@ import {
 } from "firebase/auth";
 
 import { auth } from "../utils/firebase"; // adjust path
-import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { addUser } from "../utils/store/slices/userSlice";
 
 const Login = () => {
   const [isSignInForm, setSignInForm] = useState(true);
-  const navigate = useNavigate();
   const [errors, setErrors] = useState({});
   const email = useRef(null);
   const password = useRef(null);
