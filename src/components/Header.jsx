@@ -1,3 +1,4 @@
+import React, { useEffect, useRef, useState } from "react";
 import userIcon from "../assets/netflix-user.png";
 import { IoMdArrowDropdown } from "react-icons/io";
 import { TiArrowSortedUp } from "react-icons/ti";
@@ -5,13 +6,26 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "../utils/firebase";
 import { Outlet, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { useEffect } from "react";
 import { addUser, removeUser } from "../utils/store/slices/userSlice";
+import { toggleGptSearch } from "../utils/store/slices/gptSearchSlice";
+import { changeLangauge } from "../utils/store/slices/configSlice";
+import { SUPPORTED_LANGAUGES } from "../utils/constants";
+
 const Header = () => {
   const navigate = useNavigate();
-  const user = useSelector((store) => store.user);
-
   const dispatch = useDispatch();
+  const user = useSelector((store) => store.user);
+  const gptSearchActive = useSelector(
+    (store) => store.gptSearch.gptSearchActive
+  );
+  const selectedLanguage = useRef(null);
+  const closeTimeoutRef = useRef(null);
+
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  // Auth state monitoring
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -23,23 +37,50 @@ const Header = () => {
         navigate("/");
       }
     });
-
     return () => unsubscribe();
+  }, [dispatch, navigate]);
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(closeTimeoutRef.current);
+    };
   }, []);
 
-  const handleSignOut = () => {
-    signOut(auth)
-      .then(() => {
-        alert("Sign Out successfully");
-      })
-      .catch((error) => {
-        // An error happened.
-        navigate("/error");
-      });
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      alert("Signed out successfully");
+      setDropdownOpen(false);
+    } catch (error) {
+      navigate("/error");
+    }
   };
+
+  const handleGptToggle = () => {
+    dispatch(toggleGptSearch());
+  };
+
+  const handleLanguageChange = () => {
+    if (selectedLanguage.current) {
+      dispatch(changeLangauge(selectedLanguage.current.value));
+    }
+  };
+
+  // Handlers for hover - keep dropdown open while hovering trigger or dropdown
+  const openDropdown = () => {
+    clearTimeout(closeTimeoutRef.current); // cancel pending close
+    setDropdownOpen(true);
+  };
+
+  const closeDropdown = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setDropdownOpen(false);
+    }, 150); // small delay to allow hover into dropdown
+  };
+
   return (
     <>
-      {" "}
+      {/* Header bar */}
       <div className="absolute w-full flex justify-between items-center px-4 py-2 bg-gradient-to-b from-black z-50">
         {/* Netflix Logo */}
         <img
@@ -48,45 +89,85 @@ const Header = () => {
           alt="Netflix Logo"
         />
 
-        {/* User Profile & Dropdown */}
+        {/* User controls */}
         {user && (
-          <div className="relative group ">
-            <div className="flex items-center gap-2 cursor-pointer">
-              <img
-                className="w-8 h-8 md:w-10 md:h-10 rounded-md"
-                src={userIcon}
-                alt="Netflix User Icon"
-              />
-              <IoMdArrowDropdown size={22} color="white" />
-            </div>
+          <div className="flex items-center gap-5">
+            {/* Language Selector */}
+            <select
+              id="language"
+              name="language"
+              onChange={handleLanguageChange}
+              defaultValue="en"
+              ref={selectedLanguage}
+              className="w-full sm:w-48 bg-black/50 border border-gray-500 text-white px-3 py-2 rounded-md focus:outline-none"
+            >
+              {SUPPORTED_LANGAUGES.map(({ identifier, name }) => (
+                <option key={identifier} value={identifier}>
+                  {name}
+                </option>
+              ))}
+            </select>
 
-            <div className="right-0 mt-2  absolute opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              <div className="flex justify-end pr-2">
-                <TiArrowSortedUp size={24} color="white" />
+            {/* GPT Search Toggle */}
+            <button
+              onClick={handleGptToggle}
+              className="p-2 rounded-md bg-purple-400 text-lg cursor-pointer"
+            >
+              {gptSearchActive ? "Explore Netflix" : "GPT Search"}
+            </button>
+
+            {/* User Profile and Dropdown */}
+            <div
+              className="relative"
+              onMouseEnter={openDropdown}
+              onMouseLeave={closeDropdown}
+            >
+              {/* Trigger + Dropdown inside */}
+              <div
+                className="flex items-center gap-2 cursor-pointer"
+                ref={triggerRef}
+              >
+                <img
+                  className="w-8 h-8 md:w-10 md:h-10 rounded-md"
+                  src={userIcon}
+                  alt="Netflix User Icon"
+                />
+                <IoMdArrowDropdown size={22} color="white" />
               </div>
-              {/* Dropdown menu */}
-              <div className="w-48 bg-black text-white text-sm rounded shadow-lg ">
-                <h2 className="p-2 text-green-400 ">Hi, {user.displayName}</h2>
-                <div className="flex flex-col gap-2 px-4 py-3">
-                  <span className="hover:underline cursor-pointer">
-                    Account
-                  </span>
-                  <span className="hover:underline cursor-pointer">
-                    Help Center
-                  </span>
-                  <hr className="border-gray-600" />
-                  <span
-                    onClick={handleSignOut}
-                    className="hover:underline cursor-pointer"
-                  >
-                    Sign out of Netflix
-                  </span>
+
+              {dropdownOpen && (
+                <div
+                  className="absolute right-0 mt-2 bg-black text-white rounded shadow-lg w-48 z-50"
+                  ref={dropdownRef}
+                >
+                  <div className="flex justify-end pr-2">
+                    <TiArrowSortedUp size={24} color="white" />
+                  </div>
+                  <div className="p-3">
+                    <h2 className="text-green-400 mb-2">
+                      Hi, {user.displayName}
+                    </h2>
+                    <span className="hover:underline cursor-pointer block mb-2">
+                      Account
+                    </span>
+                    <span className="hover:underline cursor-pointer block mb-2">
+                      Help Center
+                    </span>
+                    <hr className="border-gray-600 my-2" />
+                    <span
+                      onClick={handleSignOut}
+                      className="hover:underline cursor-pointer block"
+                    >
+                      Sign out of Netflix
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
       </div>
+
       <Outlet />
     </>
   );
